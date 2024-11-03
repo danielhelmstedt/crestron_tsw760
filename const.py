@@ -15,6 +15,16 @@ ENTITIES_TO_EXPOSE = [
         "value_path": ["Device", "Display", "Lcd", "AutoBrightness", "IsEnabled"],
     },
     {
+        "type": "switch",
+        "name": "Enter Standby",
+        "value_path": ["Device", "DeviceOperations", "EnterStandby"],
+    },
+    {
+        "type": "switch",
+        "name": "Exit Standby",
+        "value_path": ["Device", "DeviceOperations", "ExitStandby"],
+    },
+    {
         "type": "number",
         "name": "Brightness",
         "value_path": ["Device", "Display", "Lcd", "Brightness"],

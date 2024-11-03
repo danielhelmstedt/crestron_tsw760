@@ -1,5 +1,6 @@
 """Module that provides a DataUpdateCoordinator for fetching and updating data from a Crestron device."""
 
+from datetime import timedelta
 import json
 import logging
 
@@ -31,7 +32,10 @@ class CrestronDataUpdateCoordinator(DataUpdateCoordinator):
     def __init__(self, hass, host, name):
         """Initialize the coordinator."""
         self.host = host
-        super().__init__(hass, _LOGGER, name=name)
+        super().__init__(
+            hass, _LOGGER, name=name, update_interval=timedelta(seconds=30)
+        )
+        self.data = {}
 
     async def _async_update_data(self):
         """Fetch data from the API."""
@@ -47,7 +51,21 @@ class CrestronDataUpdateCoordinator(DataUpdateCoordinator):
                 response_data = json.loads(response_text, strict=False)
                 filtered_data = filter_response_data(response_data, EXCLUDED_KEYS)
                 _LOGGER.debug("Filtered response: %s", filtered_data)
-                return filtered_data
+                self.data = filtered_data
+                self.data["model"] = get_nested_value(
+                    response_data, ["Device", "DeviceInfo", "Model"], "Default Model"
+                )
+                self.data["SerialNumber"] = get_nested_value(
+                    response_data,
+                    ["Device", "DeviceInfo", "SerialNumber"],
+                    "Default Serial Number",
+                )
+                self.data["MacAddress"] = get_nested_value(
+                    response_data,
+                    ["Device", "DeviceInfo", "MacAddress"],
+                    "Default MAC Address",
+                )
+                return self.data
         except aiohttp.ClientError:
             _LOGGER.exception("Failed to fetch data from %s", self.host)
             raise
@@ -63,11 +81,16 @@ class CrestronDataUpdateCoordinator(DataUpdateCoordinator):
                 session.post(api_url, json=payload) as response,
             ):
                 response.raise_for_status()
-                # Fetch additional information from the device
-                response_text = await response.text()
-                _LOGGER.debug("Received device response: %s", response_text)
-                response_data = json.loads(response_text, strict=False)
-                filtered_data = filter_response_data(response_data, EXCLUDED_KEYS)
-                _LOGGER.debug("Filtered response: %s", filtered_data)
+                _LOGGER.debug("Updated EMS URL to %s", value)
         except aiohttp.ClientError:
-            _LOGGER.exception("Failed to set state for %s.", self.host)
+            _LOGGER.exception("Failed to update EMS URL to %s", value)
+            raise
+
+
+def get_nested_value(data, keys, default=None):
+    """Retrieve a nested value from a dictionary."""
+    for key in keys:
+        data = data.get(key, default)
+        if data is default:
+            break
+    return data

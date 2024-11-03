@@ -13,18 +13,20 @@ from .const import DOMAIN, ENTITIES_TO_EXPOSE
 _LOGGER = logging.getLogger(__name__)
 
 
-async def async_setup_entry(hass, entry, async_add_entities):
-    """Set up the CrestronNumber entities from a config entry."""
-    coordinator = hass.data[DOMAIN][entry.entry_id]
-    device_id = entry.entry_id
+async def async_setup_entry(hass, config_entry, async_add_entities):
+    """Set up the Crestron Number platform."""
+
+    coordinator = hass.data[DOMAIN][config_entry.entry_id]
+    name = config_entry.data.get("name", "default_name")
     entities = [
         CrestronNumber(
             coordinator,
-            entity["name"],
+            f"{name} {entity['name']}",
             entity["value_path"],
             entity["native_min_value"],
             entity["native_max_value"],
-            device_id,
+            f"{name}_{entity['name']}".replace(" ", "_").lower(),
+            config_entry,
         )
         for entity in ENTITIES_TO_EXPOSE
         if entity["type"] == "number"
@@ -33,7 +35,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
 
 
 class CrestronNumber(CrestronEntity, NumberEntity):
-    """Docstring."""
+    """Representation of a Crestron Number entity."""
 
     def __init__(
         self,
@@ -42,16 +44,28 @@ class CrestronNumber(CrestronEntity, NumberEntity):
         value_path,
         native_min_value,
         native_max_value,
-        device_id,
+        entity_id,
+        config_entry,
     ):
         """Initialize the CrestronNumber entity."""
-
-        # Pass only the arguments expected by the CrestronEntity class
-        super().__init__(coordinator, name, value_path, device_id)
+        super().__init__(coordinator, name, value_path, entity_id, config_entry)
+        self._attr_name = name
+        self._entity_id = entity_id
+        self._value_path = value_path
 
         # Assign the min and max values specific to CrestronNumber
         self._attr_native_min_value = native_min_value
         self._attr_native_max_value = native_max_value
+
+    @property
+    def unique_id(self):
+        """Return a unique ID for the entity."""
+        return f"{self._entity_id}_{self._attr_name}"
+
+    @property
+    def name(self):
+        """Return the name of the entity."""
+        return self._attr_name
 
     @property
     def native_value(self):

@@ -13,17 +13,18 @@ from .const import DOMAIN, ENTITIES_TO_EXPOSE
 _LOGGER = logging.getLogger(__name__)
 
 
-async def async_setup_entry(hass, entry, async_add_entities):
-    """Docstring."""
+async def async_setup_entry(hass, config_entry, async_add_entities):
+    """Set up the Crestron switch platform."""
 
-    coordinator = hass.data[DOMAIN][entry.entry_id]
-    device_id = entry.entry_id
+    coordinator = hass.data[DOMAIN][config_entry.entry_id]
+    name = config_entry.data.get("name", "default_name")
     entities = [
         CrestronSwitch(
             coordinator,
-            entity["name"],
+            f"{name} {entity['name']}",
             entity["value_path"],
-            device_id,
+            f"{name}_{entity['name']}".replace(" ", "_").lower(),
+            config_entry,
         )
         for entity in ENTITIES_TO_EXPOSE
         if entity["type"] == "switch"
@@ -34,17 +35,18 @@ async def async_setup_entry(hass, entry, async_add_entities):
 class CrestronSwitch(CrestronEntity, SwitchEntity):
     """Representation of a Crestron Switch entity."""
 
-    def __init__(self, coordinator, name, value_path, device_id):
+    def __init__(self, coordinator, name, value_path, entity_id, config_entry):
         """Initialize the CrestronSwitch entity."""
-        super().__init__(coordinator, name, value_path, device_id)
+        super().__init__(coordinator, name, value_path, entity_id, config_entry)
         self._attr_name = name
-        self._device_id = f"{name}_switch".replace(" ", "_").lower()
+        self._entity_id = entity_id
+        self._value_path = value_path
         self._attr_is_on = self._extract_value()
 
     @property
     def unique_id(self):
         """Return a unique ID for the entity."""
-        return f"{self._device_id}_{self._attr_name}"
+        return f"{self._entity_id}_{self._attr_name}"
 
     @property
     def name(self):

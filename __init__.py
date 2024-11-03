@@ -1,5 +1,9 @@
+"""Crestron TSW-760 integration for Home Assistant."""
+
 import logging
+
 from homeassistant import config_entries
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_HOST, CONF_NAME
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
@@ -10,36 +14,29 @@ from .coordinator import CrestronDataUpdateCoordinator
 _LOGGER = logging.getLogger(__name__)
 
 
-async def async_setup_entry(
-    hass: HomeAssistant, entry: config_entries.ConfigEntry
-) -> bool:
-    """Set up the Crestron integration from a config entry."""
-    if entry.entry_id in hass.data.get(DOMAIN, {}):
-        return False  # Prevent duplicate devices
-
-    host = entry.data[CONF_HOST]
-    name = entry.data[CONF_NAME]
-    coordinator = CrestronDataUpdateCoordinator(hass, host, name)
+async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> bool:
+    """Set up Crestron TSW-760 from a config entry."""
+    hass.data.setdefault(DOMAIN, {})
+    hass.data[DOMAIN][config_entry.entry_id] = config_entry.data
+    coordinator = CrestronDataUpdateCoordinator(
+        hass, config_entry.data[CONF_HOST], config_entry.data[CONF_NAME]
+    )
+    # Forward the setup to the appropriate platforms
     await coordinator.async_config_entry_first_refresh()
+    hass.data[DOMAIN][config_entry.entry_id] = coordinator
 
-    hass.data.setdefault(DOMAIN, {})[entry.entry_id] = coordinator
-
-    # Register platforms
-    for platform in PLATFORMS:
-        hass.async_create_task(
-            hass.config_entries.async_forward_entry_setup(entry, platform)
-        )
-
+    # Forward the setup to the appropriate platforms
+    await hass.config_entries.async_forward_entry_setups(config_entry, PLATFORMS)
     return True
 
 
-async def async_unload_entry(
-    hass: HomeAssistant, entry: config_entries.ConfigEntry
-) -> bool:
+async def async_unload_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> bool:
     """Unload a config entry."""
-    unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    unload_ok = await hass.config_entries.async_unload_platforms(
+        config_entry, PLATFORMS
+    )
     if unload_ok:
-        hass.data[DOMAIN].pop(entry.entry_id)
+        hass.data[DOMAIN].pop(config_entry.entry_id)
     return unload_ok
 
 
@@ -51,20 +48,31 @@ class CrestronEntity(CoordinatorEntity):
         coordinator: CrestronDataUpdateCoordinator,
         name: str,
         value_path: list,
-        device_id: str,
+        entity_id: str,
+        config_entry: config_entries.ConfigEntry,
     ):
         """Initialize the Crestron entity."""
         super().__init__(coordinator)
         self._attr_name = name
         self.value_path = value_path
-        self._device_id = device_id
-        self._attr_unique_id = f"{device_id}_" + "_".join(value_path)
+        self._entity_id = entity_id
+        self._attr_unique_id = f"{entity_id}_" + "_".join(value_path)
+        self._attr_model = self.coordinator.data.get("model", "")
+        self._attr_serial_number = self.coordinator.data.get("SerialNumber", "")
+        self._attr_mac_address = self.coordinator.data.get("MacAddress", "")
         self._attr_device_info = {
-            "identifiers": {(DOMAIN, device_id)},
-            "name": name,
+            "identifiers": {(DOMAIN, self._attr_serial_number)},
+            "name": config_entry.data.get(CONF_NAME, name),
             "manufacturer": "Crestron",
-            "model": "TSW-760",
+            "model": self._attr_model,
+            "serial_number": self._attr_serial_number,
+            "connections": {("mac", self._attr_mac_address)},
         }
+
+    @property
+    def device_info(self):
+        """Return device information about this entity."""
+        return self._attr_device_info
 
     @property
     def available(self):

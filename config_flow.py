@@ -14,6 +14,15 @@ from .const import DOMAIN
 _LOGGER = logging.getLogger(__name__)
 
 
+def get_nested_value(data, keys, default=None):
+    """Retrieve a nested value from a dictionary."""
+    for key in keys:
+        data = data.get(key, default)
+        if data is default:
+            break
+    return data
+
+
 class CrestronTSW760ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow for Crestron TSW-760."""
 
@@ -38,9 +47,16 @@ class CrestronTSW760ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     _LOGGER.debug("Received device response: %s", response_text)
                     device_info = json.loads(response_text, strict=False)
 
-                # Extract necessary information from device_info
-                serial_number = device_info.get("serial_number")
-                model = device_info.get("model")
+                    # Extract necessary information from device_info
+                    model = get_nested_value(
+                        device_info, ["Device", "DeviceInfo", "Model"], ""
+                    )
+                    serial_number = get_nested_value(
+                        device_info, ["Device", "DeviceInfo", "SerialNumber"], ""
+                    )
+                    mac_address = get_nested_value(
+                        device_info, ["Device", "DeviceInfo", "MacAddress"], ""
+                    )
 
                 # Create entry with the validated data
                 return self.async_create_entry(
@@ -48,20 +64,22 @@ class CrestronTSW760ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     data={
                         CONF_HOST: host,
                         CONF_NAME: name,
-                        "serial_number": serial_number,
                         "model": model,
+                        "serial_number": serial_number,
+                        "mac_address": mac_address,
                     },
                 )
-            except aiohttp.ClientError:
+            except aiohttp.ClientError as err:
+                _LOGGER.error("Error connecting to device: %s", err)
                 errors["base"] = "cannot_connect"
 
-        data_schema = vol.Schema(
-            {
-                vol.Required(CONF_HOST): str,
-                vol.Required(CONF_NAME): str,
-            }
-        )
-
         return self.async_show_form(
-            step_id="user", data_schema=data_schema, errors=errors
+            step_id="user",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(CONF_HOST): str,
+                    vol.Required(CONF_NAME): str,
+                }
+            ),
+            errors=errors,
         )

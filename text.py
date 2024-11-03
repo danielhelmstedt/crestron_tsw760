@@ -13,41 +13,59 @@ from homeassistant.components.input_text import (
     CONF_PATTERN,
     InputText,
 )
-from homeassistant.const import CONF_ICON, CONF_NAME
+from homeassistant.const import CONF_ICON
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from . import CrestronEntity
-from .const import DOMAIN
+from .const import DOMAIN, ENTITIES_TO_EXPOSE
 
 _LOGGER = logging.getLogger(__name__)
 
 
 async def async_setup_entry(
-    hass, entry, async_add_entities: AddEntitiesCallback
+    hass, config_entry, async_add_entities: AddEntitiesCallback
 ) -> None:
     """Set up the CrestronText entities from a config entry."""
-    coordinator = hass.data[DOMAIN][entry.entry_id]
-    name = "EMS URL"
-    device_id = entry.entry_id
-    entities = [CrestronEMSUrl(coordinator, name, device_id)]
-    async_add_entities(entities)
+    coordinator = hass.data[DOMAIN][config_entry.entry_id]
+    name = config_entry.data.get("name", "default_name")
+    entities = [
+        CrestronEMSUrl(
+            coordinator,
+            f"{name} {entity['name']}",
+            entity["value_path"],
+            f"{name}_{entity['name']}".replace(" ", "_").lower(),
+            config_entry,
+        )
+        for entity in ENTITIES_TO_EXPOSE
+        if entity["type"] == "text"
+    ]
+
+    async_add_entities(entities, update_before_add=True)
 
 
 class CrestronEMSUrl(CrestronEntity, InputText):
     """Representation of a Crestron EMS URL entity."""
 
-    def __init__(self, coordinator, name, device_id):
+    def __init__(
+        self,
+        coordinator,
+        name,
+        value_path,
+        entity_id,
+        config_entry,
+    ):
         """Initialize the CrestronEMSUrl entity."""
-        super().__init__(coordinator, name, [], device_id)
+        super().__init__(coordinator, name, value_path, entity_id, config_entry)
+        self._attr_name = name
+        self._entity_id = entity_id
+        self._value_path = value_path
         self._config = {
-            CONF_NAME: name,
-            CONF_ICON: "mdi:link-variant",
+            CONF_ICON: "mdi:link",
             CONF_MIN: 0,
             CONF_MAX: 255,
             CONF_MODE: "text",
             CONF_PATTERN: r"(https:\/\/www\.|http:\/\/www\.|https:\/\/|http:\/\/)?[a-zA-Z0-9]{2,}(\.[a-zA-Z0-9]{2,})(\.[a-zA-Z0-9]{2,})?",
         }
-        self._attr_name = self._config[CONF_NAME]
         self._attr_icon = self._config[CONF_ICON]
         self._attr_min = self._config[CONF_MIN]
         self._attr_max = self._config[CONF_MAX]
@@ -74,7 +92,7 @@ class CrestronEMSUrl(CrestronEntity, InputText):
     @property
     def unique_id(self):
         """Return a unique ID for the entity."""
-        return f"{self._device_id}_{self._attr_name}"
+        return f"{self._entity_id}_{self._attr_name}"
 
     @property
     def name(self):
