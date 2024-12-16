@@ -1,6 +1,6 @@
 {
-    "name": "Crestron TSW-760 Integration",
-    "content_in_root": true,
-    "homeassistant": "2021.12.0",
-    "hacs": "1.0.0"
+    "name": "Crestron TSW-760",
+    "content_in_root": false,
+    "iot_class": "Local Polling",
+    "domains": ["number", "sensor", "switch", "text"]
   }
