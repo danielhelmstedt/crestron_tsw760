@@ -1,7 +1,7 @@
 {
     "domain": "crestron_tsw760",
     "name": "Crestron TSW-760",
-    "version": "1.0",
+    "version": "1.0.1",
     "documentation": "https://github.com/danielhelmstedt/crestron_tsw760",
     "dependencies": [],
     "codeowners": [

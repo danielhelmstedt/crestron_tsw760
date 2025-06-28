@@ -1,7 +1,7 @@
 """Define constant variables."""
 
 DOMAIN = "crestron_tsw760"
-PLATFORMS = ["sensor", "switch", "number", "text"]
+PLATFORMS = ["sensor", "button", "switch", "number", "text"]
 
 ENTITIES_TO_EXPOSE = [
     {
@@ -15,12 +15,12 @@ ENTITIES_TO_EXPOSE = [
         "value_path": ["Device", "Display", "Lcd", "AutoBrightness", "IsEnabled"],
     },
     {
-        "type": "switch",
+        "type": "button",
         "name": "Enter Standby",
         "value_path": ["Device", "DeviceOperations", "EnterStandby"],
     },
     {
-        "type": "switch",
+        "type": "button",
         "name": "Exit Standby",
         "value_path": ["Device", "DeviceOperations", "ExitStandby"],
     },
